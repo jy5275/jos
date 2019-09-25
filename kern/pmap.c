@@ -180,6 +180,8 @@ mem_init(void)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
 
+	boot_map_region(kern_pgdir, UPAGES, PTSIZE, PADDR(pages), PTE_U);
+
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -192,6 +194,8 @@ mem_init(void)
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
 
+	boot_map_region(kern_pgdir, KSTACKTOP - KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W);
+
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -200,6 +204,8 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+
+	boot_map_region(kern_pgdir, KERNBASE, (1<<28) - 1, 0, PTE_W);	// Reserve 256M physical mem	
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -262,7 +268,7 @@ page_init(void)
 	page_free_list = NULL;
 	uint32_t curmem;
 	uint32_t fb = (uint32_t)boot_alloc(0) - KERNBASE;
-	//cprintf("*** fb = %x ***\n", fb);
+	cprintf("*** fb = %x ***\n", fb);
 
 	for(size_t i=0; i<npages; i++){
 		curmem = i*PGSIZE;	// Beginning addr of this page
@@ -397,15 +403,15 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	// Fill this function in
+	// Corresponding `PageInfo' nodes for physical address [pa, pa+size) are 
+	// either set to pp_link == NULL && pp_ref == 1, or not exist (pa < KERNBASE). 
+	// Therefore, we do not modify any fields in `PageInfo' nodes.
 	int nmapages = size / PGSIZE;
-	struct PageInfo *pp = pa2page(pa);
 
 	for (int i=0; i<nmapages; i++) {
 		pte_t *pte = pgdir_walk(pgdir, (void*)(va + i*PGSIZE), 1);
 		*pte = (pa + i*PGSIZE) | perm | PTE_P;
 	}
-	
 }
 
 //
