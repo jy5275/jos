@@ -52,7 +52,14 @@ serial_proc_data(void)
 {
 	if (!(inb(COM1+COM_LSR) & COM_LSR_DATA))
 		return -1;
-	return inb(COM1+COM_RX);
+	//return inb(COM1+COM_RX);
+	int c;
+	c = inb(COM1+COM_RX);
+	switch (c) {
+		case '\r': 	return '\n';
+		case 0x7f:	return '\b';
+		default:	return c;
+	}
 }
 
 void
@@ -71,7 +78,10 @@ serial_putc(int c)
 	     !(inb(COM1 + COM_LSR) & COM_LSR_TXRDY) && i < 12800;
 	     i++)
 		delay();
-
+	if (c == '\b'){
+		outb(COM1 + COM_TX, '\b');
+		outb(COM1 + COM_TX, ' ');
+	}
 	outb(COM1 + COM_TX, c);
 }
 

@@ -6,6 +6,7 @@
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <kern/pmap.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
@@ -24,9 +25,129 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "map", "Show mappings in detail", mon_show_mappings },
+	{ "change", "Change to new priviledge bits", mon_change },
+	{ "clear", "Remove certain priviledge bits", mon_clear },
+	{ "set", "Set some priviledge bits", mon_set },
+	{ "dump", "Dump current content of specified memory", mon_dump },
+	{ "test", "For develope use", mon_test }
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int mon_test(int argc, char **argv, struct Trapframe *tf) {
+	char *s = "Hello";
+	outb(0x3F8, 'H');
+	outb(0x3F8, 'e');
+	outb(0x3F8, 'l');
+	outb(0x3F8, 'l');
+	outb(0x3F8, '\b');
+	char c = getchar();
+	outb(0x3F8, '\b');
+	outb(0x3F8, '\b');
+	outb(0x3F8, '\b');
+	outb(0x3F8, 'o');
+	outb(0x3F8, ',');
+
+	outb(0x3F8, '\n');
+	return 0;
+}
+
+int mon_dump(int argc, char **argv, struct Trapframe *tf) {
+	if (argc != 4) {
+		cprintf("ARGS Error!\n");
+		return -1;
+	}
+	char *buf;
+	char *type = argv[3];
+	uintptr_t beg;
+	uintptr_t end;
+	if (type[0] == 'V') {
+		beg = strtol(argv[1], &buf, 16);
+		end = strtol(argv[2], &buf, 16);
+	}
+	else if (type[0] == 'P') {
+		beg = strtol(argv[1] + KERNBASE, &buf, 16);
+		end = strtol(argv[2] + KERNBASE, &buf, 16);
+	} 
+	else{
+		cprintf("ARGS Error!\n");
+		return -1;
+	}
+
+	beg = ROUNDUP(beg, 4);
+	uintptr_t p = beg;
+	for (; p < end; p+=4) {
+		cprintf("[%p]:0x%x\n", p, *(uint32_t*)p);
+	}
+	return 0;
+}
+
+int mon_show_mappings(int argc, char **argv, struct Trapframe *tf){
+	if (argc != 3)
+		panic("ARGS error!");
+	char *buf;
+	uintptr_t abeg = strtol(argv[1], &buf, 16);// readnum(argv[1], 16);
+	uintptr_t aend = strtol(argv[2], &buf, 16);
+
+	for (uintptr_t a = abeg; a<aend; a+=PGSIZE){
+		pte_t *pte = pgdir_walk(kern_pgdir, (void*)a, 0);
+		if (pte && (*pte & PTE_P)) {
+			physaddr_t pbase = PTE_ADDR(*pte);
+			cprintf(" [%p-%p]: [%p-%p] ", a, a+PGSIZE-1, pbase, pbase+PGSIZE-1);
+			if (*pte & PTE_U) cputchar('U');
+			else cputchar('-');
+			cputchar('R');
+			if (*pte & PTE_W) cputchar('W');
+			else cputchar('-');
+			cputchar('\n');
+		}
+	}
+	return 0;
+}
+
+int mon_change(int argc, char **argv, struct Trapframe *tf) {
+	if (argc != 3)
+		panic("ARGS error!");
+	char *buf;
+	uintptr_t addr = strtol(argv[1], &buf, 16);// readnum(argv[1], 16);
+	uint32_t newperm = strtol(argv[2], &buf, 10);// readnum(argv[2], 10);
+
+	pte_t *pte = pgdir_walk(kern_pgdir, (void*)addr, 0);
+	if (pte == NULL || !(*pte & PTE_P))
+		return -1;
+	*pte &= (~0xfff);
+	*pte |= newperm;
+	return 0;
+}
+
+int mon_set(int argc, char **argv, struct Trapframe *tf) {
+	if (argc != 3)
+		panic("ARGS error!");
+	char *buf;
+	uintptr_t addr = strtol(argv[1], &buf, 16);// readnum(argv[1], 16);
+	uint32_t addperm = strtol(argv[2], &buf, 10);// readnum(argv[2], 10);
+
+	pte_t *pte = pgdir_walk(kern_pgdir, (void*)addr, 0);
+	if (pte == NULL || !(*pte & PTE_P))
+		return -1;
+	*pte |= addperm;
+	return 0;
+}
+
+
+int mon_clear(int argc, char **argv, struct Trapframe *tf) {
+	if (argc != 3)
+		panic("ARGS error!");
+	char *buf;
+	uintptr_t addr = strtol(argv[1], &buf, 16);// readnum(argv[1], 16);
+	uint32_t rmperm = strtol(argv[2], &buf, 10);// readnum(argv[2], 10);
+
+	pte_t *pte = pgdir_walk(kern_pgdir, (void*)addr, 0);
+	if (pte == NULL || !(*pte & PTE_P))
+		return -1;
+	*pte &= (~rmperm);
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
