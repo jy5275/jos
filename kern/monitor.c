@@ -78,6 +78,8 @@ int mon_dump(int argc, char **argv, struct Trapframe *tf) {
 	beg = ROUNDUP(beg, 4);
 	uintptr_t p = beg;
 	for (; p < end; p+=4) {
+		pte_t *pte = pgdir_walk(kern_pgdir, (void*)p, 0);
+		if (!pte || !(*pte & PTE_P))	continue;
 		cprintf("[%p]:0x%x\n", p, *(uint32_t*)p);
 	}
 	return 0;
