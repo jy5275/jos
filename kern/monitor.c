@@ -30,7 +30,8 @@ static struct Command commands[] = {
 	{ "clear", "Remove certain priviledge bits", mon_clear },
 	{ "set", "Set some priviledge bits", mon_set },
 	{ "dump", "Dump current content of specified memory", mon_dump },
-	{ "test", "For develope use", mon_test }
+	{ "test", "For develope use", mon_test },
+	{ "bt", "Backtrace the stack", mon_backtrace}
 };
 
 /***** Implementations of basic kernel monitor commands *****/
