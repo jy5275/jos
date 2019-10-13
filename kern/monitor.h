@@ -21,5 +21,6 @@ int mon_set(int argc, char **argv, struct Trapframe *tf);
 int mon_clear(int argc, char **argv, struct Trapframe *tf);
 int mon_dump(int argc, char **argv, struct Trapframe *tf);
 int mon_test(int argc, char **argv, struct Trapframe *tf);
+int mon_continue(int argc, char **argv, struct Trapframe *tf);
 
 #endif	// !JOS_KERN_MONITOR_H
