@@ -40,22 +40,12 @@ static struct Command commands[] = {
 /***** Implementations of basic kernel monitor commands *****/
 int mon_continue(int argc, char **argv, struct Trapframe *tf) {
 	tf->tf_eflags = tf->tf_eflags & (~FL_TF);
-	
 	return -1;
 }
 
 int mon_next(int argc, char **argv, struct Trapframe *tf) {
 	tf->tf_eflags = tf->tf_eflags | FL_TF;
 	cprintf("tf->tf_eflags: %b\n", tf->tf_eflags);
-
-	//mon_backtrace(1, NULL, NULL);
-
-	// int *ebp = (int*)read_ebp();
-	// struct Eipdebuginfo info;
-	// debuginfo_eip(ebp[1], &info);
-    // cprintf(" %s:%d: %.*s+%d\n", info.eip_file, info.eip_line, 
-	// 		info.eip_fn_namelen, info.eip_fn_name, ebp[1] - info.eip_fn_addr);
-
 	return -1;
 }
 

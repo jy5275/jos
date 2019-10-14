@@ -85,10 +85,4 @@ _alltraps:
 
 	pushl %esp
 	call trap
-	; addl $4, %esp
-
-	; popal
-	; popl %es
-	; popl %ds
-	; addl $0x8, %esp
-	; iret
+	

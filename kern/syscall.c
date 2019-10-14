@@ -24,18 +24,7 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
-
 	user_mem_assert(curenv, s, len, PTE_U);
-
-	// for (int i=0; i<len; i++){
-	// 	pde_t *pde = &(curenv->env_pgdir[PDX(s+i)]);
-	// 	if (pde == NULL || !(*pde & PTE_P) || !(*pde & PTE_U))
-	// 		goto bad;
-
-	// 	pte_t *pte = pgdir_walk(curenv->env_pgdir, s+i, 0);
-	// 	if (pte == NULL || !(*pte & PTE_P) || !(*pte & PTE_U))
-	// 		goto bad;
-	// }
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -90,21 +79,16 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// LAB 3: Your code here.
 
 	//panic("syscall not implemented");
-
 	switch (syscallno) {
 		case SYS_cputs:
 			sys_cputs((char*)a1, (size_t)a2);
 			return 0;
-			//break;
 		case SYS_cgetc:
 			return sys_cgetc();
-			//break;
 		case SYS_env_destroy:
 			return sys_env_destroy(curenv->env_id);
-			//break;
 		case SYS_getenvid:
 			return sys_getenvid();
-			//break;
 	default:
 		return -E_INVAL;
 	}
