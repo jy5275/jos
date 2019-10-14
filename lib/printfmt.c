@@ -203,6 +203,12 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			base = 10;
 			goto number;
 
+		// binary
+		case 'b':
+			num = getuint(&ap, lflag);
+			base = 2;
+			goto number;
+
 		// (unsigned) octal
 		case 'o':
 			// Replace this with your code.

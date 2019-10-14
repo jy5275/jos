@@ -33,13 +33,30 @@ static struct Command commands[] = {
 	{ "dump", "Dump current content of specified memory", mon_dump },
 	{ "test", "For develope use", mon_test },
 	{ "bt", "Backtrace the stack", mon_backtrace},
-	{ "continue", "Continue to execute after breakpoint", mon_continue }
+	{ "c", "Continue to execute after breakpoint", mon_continue },
+	{ "n", "Next instruction", mon_next }
 };
 
 /***** Implementations of basic kernel monitor commands *****/
 int mon_continue(int argc, char **argv, struct Trapframe *tf) {
+	tf->tf_eflags = tf->tf_eflags & (~FL_TF);
 	
-	return 0;
+	return -1;
+}
+
+int mon_next(int argc, char **argv, struct Trapframe *tf) {
+	tf->tf_eflags = tf->tf_eflags | FL_TF;
+	cprintf("tf->tf_eflags: %b\n", tf->tf_eflags);
+
+	//mon_backtrace(1, NULL, NULL);
+
+	// int *ebp = (int*)read_ebp();
+	// struct Eipdebuginfo info;
+	// debuginfo_eip(ebp[1], &info);
+    // cprintf(" %s:%d: %.*s+%d\n", info.eip_file, info.eip_line, 
+	// 		info.eip_fn_namelen, info.eip_fn_name, ebp[1] - info.eip_fn_addr);
+
+	return -1;
 }
 
 int mon_test(int argc, char **argv, struct Trapframe *tf) {

@@ -190,11 +190,13 @@ trap_dispatch(struct Trapframe *tf)
 	switch (tf->tf_trapno){
 	case T_PGFLT:
 		page_fault_handler(tf);
-		break;
+		return;
+	case T_DEBUG:
+		cprintf("=========DEBUG_EXP========\n");
 	case T_BRKPT:
-		print_trapframe(tf);
+		//print_trapframe(tf);
 		monitor(tf);
-		break;
+		return;
 	case T_SYSCALL:
 		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, 
 			tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx, 
