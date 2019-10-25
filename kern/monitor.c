@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 #include <inc/x86.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 #include <kern/console.h>
 #include <kern/monitor.h>
@@ -14,8 +15,7 @@
 #include <kern/trap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
-
-
+extern struct Env *curenv;
 struct Command {
 	const char *name;
 	const char *desc;
@@ -34,18 +34,33 @@ static struct Command commands[] = {
 	{ "test", "For develope use", mon_test },
 	{ "bt", "Backtrace the stack", mon_backtrace},
 	{ "c", "Continue to execute after breakpoint", mon_continue },
-	{ "n", "Next instruction", mon_next }
+	{ "n", "Next instruction", mon_next },
+	{ "s", "Step", mon_step }
 };
 
 /***** Implementations of basic kernel monitor commands *****/
 int mon_continue(int argc, char **argv, struct Trapframe *tf) {
+	if (!tf){
+		cprintf("No process is running.\n");
+		return 0;
+	}
+	cprintf("[Before continue] eflags: %b\n", tf->tf_eflags);
 	tf->tf_eflags = tf->tf_eflags & (~FL_TF);
+	cprintf("[After continue] eflags: %b\n", tf->tf_eflags);
 	return -1;
 }
 
 int mon_next(int argc, char **argv, struct Trapframe *tf) {
+	if (!tf){
+		cprintf("No process is running.\n");
+		return 0;
+	}
 	tf->tf_eflags = tf->tf_eflags | FL_TF;
 	cprintf("tf->tf_eflags: %b\n", tf->tf_eflags);
+	return -1;
+}
+
+int mon_step(int argc, char **argv, struct Trapframe *tf) {
 	return -1;
 }
 
@@ -198,15 +213,40 @@ int mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
 	cprintf("Stack backtrace:\n");
 	struct Eipdebuginfo info;
 	while(ebp != 0){
+		pde_t *pde = (curenv->env_pgdir) ? curenv->env_pgdir : kern_pgdir;
+		if(!pgdir_walk(pde, ebp, 0)){
+			//cprintf("Invalid ebp, maybe corrupted stack?\n");
+			break;
+		}
 		cprintf("  ebp %08x", (int)ebp);
-		cprintf("  eip %08x", *(ebp + 1));
+		
+		pte_t *pte = pgdir_walk(pde, ebp+1, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("  eip %08x", *(ebp + 1));
 		cprintf("  args ");
-		cprintf("%08x ", *(ebp + 2));
-		cprintf("%08x ", *(ebp + 3));
-		cprintf("%08x ", *(ebp + 4));
-		cprintf("%08x ", *(ebp + 5));
-		cprintf("%08x\n", *(ebp + 6));
-		debuginfo_eip(ebp[1], &info);
+
+		pte = pgdir_walk(pde, ebp+2, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("%08x ", *(ebp + 2));
+
+		pte = pgdir_walk(pde, ebp+3, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("%08x ", *(ebp + 3));
+
+		pte = pgdir_walk(pde, ebp+4, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("%08x ", *(ebp + 4));
+
+		pte = pgdir_walk(pde, ebp+5, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("%08x ", *(ebp + 5));
+
+		pte = pgdir_walk(pde, ebp+6, 0);
+		if(pte && (*pte)&PTE_P)
+			cprintf("%08x", *(ebp + 6));
+
+		cprintf("\n");
+		debuginfo_eip(ebp[1] - 1, &info);
     	cprintf("     %s:%d: %.*s+%d\n", info.eip_file, info.eip_line, 
 			info.eip_fn_namelen, info.eip_fn_name, ebp[1] - info.eip_fn_addr);
 		ebp = (int*)(*ebp);
