@@ -15,7 +15,7 @@
 #include <kern/trap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
-extern struct Env *curenv;
+//extern struct Env *curenv;
 struct Command {
 	const char *name;
 	const char *desc;
