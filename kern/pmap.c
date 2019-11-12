@@ -504,6 +504,11 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	pte_t *ptetest = pgdir_walk(pgdir, va, 1);
 	if (ptetest == NULL)
 		return -E_NO_MEM;
+
+	// inc pp_ref before `page_remove`!!!
+	// If the same pp is re-inserted at the same va but `page_remove`
+	// is put ahead, the pageframe pp ptr to may be freed and added
+	// into `page_free_list`
 	pp->pp_ref++;
 	if ((*ptetest) & PTE_P){
 		page_remove(pgdir, va);
