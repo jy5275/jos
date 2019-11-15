@@ -389,7 +389,7 @@ page_fault_handler(struct Trapframe *tf)
 	// Set a new UTrapframe just below previous esp
 	// Copy the content from Trapframe to UTrapframe
 	uint32_t sz = sizeof(struct UTrapframe);
-	user_mem_assert(curenv, stktop - sz, sz, PTE_U | PTE_W);
+	user_mem_assert(curenv, (void*)(stktop - sz), sz, PTE_U | PTE_W);
 
 	struct UTrapframe *utf = (struct UTrapframe*)(stktop - sz);
 	utf->utf_fault_va = fault_va;
@@ -400,8 +400,8 @@ page_fault_handler(struct Trapframe *tf)
 	utf->utf_esp = tf->tf_esp;
 
 	// Return to user mode to handle page fault
-	curenv->env_tf.tf_eip = curenv->env_pgfault_upcall;
-	curenv->env_tf.tf_esp = utf;
+	curenv->env_tf.tf_eip = (uintptr_t)(curenv->env_pgfault_upcall);
+	curenv->env_tf.tf_esp = (uintptr_t)utf;
 	env_run(curenv);
 	//sys_page_alloc(curenv->env_id, UXSTACKTOP-PGSIZE, PTE_P | PTE_U | PTE_W);
 }

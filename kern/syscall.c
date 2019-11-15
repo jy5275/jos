@@ -150,8 +150,7 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	if ((errorCode = envid2env(envid, &e, 1)) < 0)
 		return errorCode;
 	e->env_pgfault_upcall = func;
-
-	panic("sys_env_set_pgfault_upcall not implemented");
+	return 0;
 }
 
 // Allocate a page of memory and map it at 'va' with permission
@@ -204,7 +203,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 		return errorCode;
 	}
 	return 0;
-	//panic("sys_page_alloc not implemented");
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
@@ -375,6 +373,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_getenvid();
 		case SYS_env_destroy:
 			return sys_env_destroy(curenv->env_id);
+
 		case SYS_page_alloc:
 			return sys_page_alloc((envid_t)a1, (void*)a2, (int)a3);
 		case SYS_page_map:
@@ -387,6 +386,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_env_set_status:
 			return sys_env_set_status((envid_t)a1, (int)a2);
 
+		case SYS_env_set_pgfault_upcall:
+			return sys_env_set_pgfault_upcall((envid_t)a1, (void*)a2);
 		case SYS_yield:
 			sys_yield();
 			return 0;	// Should never return???
