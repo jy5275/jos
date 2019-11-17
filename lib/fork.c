@@ -138,10 +138,72 @@ envid_t fork(void) {
 	return envid;
 }
 
+// ========================================================================================
+
+static int sduppage(envid_t envid, unsigned pn) {
+	// LAB 4: Your code here.
+	int r;
+	void *addr = (void*)(pn*PGSIZE);
+	pte_t *pte = &((pte_t*)uvpt)[pn];
+	if (*pte & PTE_W) {			// Writable page!
+		if ((r = sys_page_map(0,addr,envid,addr,PTE_P|PTE_U|PTE_W))<0)
+			panic("sduppage: %e", r);
+	} else {					// Read-only pages!
+		if ((r = sys_page_map(0, addr, envid, addr, PTE_P|PTE_U)) < 0)
+			panic("sduppage: %e", r);
+	}
+	return 0;
+}
+
+
 // Challenge!
-int
-sfork(void)
-{
-	panic("sfork not implemented");
-	return -E_INVAL;
+int sfork(void) {
+	// LAB 4: Your code here.
+	set_pgfault_handler(pgfault);
+	envid_t envid = sys_exofork();
+	int r;
+	if (envid == 0) {		// Child
+		thisenv = &envs[ENVX(sys_getenvid())];
+		cprintf("Birth of child...\n");
+		return 0;
+	}
+
+	// Parent
+	extern void _pgfault_upcall(void); 
+	uintptr_t addr;
+
+	for (int i = 0; i < PDX(UTOP); i++) {
+		if (!(((pde_t*)uvpd)[i] & PTE_P))		// PDE i not exist
+			continue;
+
+		for (int j = 0; j<NPTENTRIES; j++){
+			int pn = PGNUM(PGADDR(i, j, 0));
+			if (pn == PGNUM(UXSTACKTOP - PGSIZE)) 	// User exception stack
+				break;
+			else if (pn == PGNUM(USTACKTOP - PGSIZE))	// User stack
+				duppage(envid, pn);
+			else if (!(((pde_t*)uvpt)[pn] & PTE_P))	// PTE pn not exist
+				continue;
+			else		// Normal existing page
+				sduppage(envid, pn);
+		}
+	}
+	
+	// copy content of user exception stack
+	if ((r = sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), 
+		PTE_P | PTE_U | PTE_W)) < 0)
+		panic("fork: %e", r);
+	if ((r = sys_page_map(envid, (void*)(UXSTACKTOP - PGSIZE), 0, 
+		(void*)(PFTEMP), PTE_P | PTE_U | PTE_W)) < 0)
+		panic("fork: %e", r);
+	memmove((void*)PFTEMP, (void*)(UXSTACKTOP - PGSIZE), PGSIZE);	// ???
+	if ((r = sys_page_unmap(0, PFTEMP)) < 0)
+		panic("fork: %e", r);
+
+	sys_env_set_pgfault_upcall(envid, _pgfault_upcall);	
+
+	if ((r = sys_env_set_status(envid, ENV_RUNNABLE)) < 0)
+		panic("fork: %e", r);
+	return envid;
+
 }
