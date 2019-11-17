@@ -50,6 +50,23 @@ void handler16();
 void handler17();
 void handler18();
 void handler19();
+
+void handler32();
+void handler33();
+void handler34();
+void handler35();
+void handler36();
+void handler37();
+void handler38();
+void handler39();
+void handler40();
+void handler41();
+void handler42();
+void handler43();
+void handler44();
+void handler45();
+void handler46();
+void handler47();
 void handler48();
 
 static const char *trapname(int trapno)
@@ -113,6 +130,13 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 0, GD_KT, handler17, 0);
 	SETGATE(idt[T_MCHK], 0, GD_KT, handler18, 0);
 	SETGATE(idt[T_SIMDERR], 0, GD_KT, handler19, 0);
+
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, handler32, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD], 0, GD_KT, handler33, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], 0, GD_KT, handler36, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SPURIOUS], 0, GD_KT, handler39, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_IDE], 0, GD_KT, handler46, 0);
+
 	SETGATE(idt[T_SYSCALL], 0, GD_KT, handler48, 3);
 
 	// Per-CPU setup 
@@ -247,6 +271,10 @@ trap_dispatch(struct Trapframe *tf)
 		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, 
 			tf->tf_regs.reg_ecx, tf->tf_regs.reg_ebx, 
 			tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+		return;
+	case IRQ_OFFSET + IRQ_TIMER:
+		lapic_eoi();
+		sched_yield();
 		return;
 	default:
 		break;

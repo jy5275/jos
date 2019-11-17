@@ -263,6 +263,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	e->env_tf.tf_eflags = e->env_tf.tf_eflags | FL_IF;
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -298,14 +299,14 @@ region_alloc(struct Env *e, void *va, size_t len)
 	
 	void *vend = (void*)ROUNDUP((size_t)va + len, PGSIZE);
 	va = ROUNDDOWN(va, PGSIZE);
-	struct PageInfo *page;
+	struct PageInfo *pp;
 	
 	for (uintptr_t p = (size_t)va; p < (size_t)vend; p += PGSIZE){
-		page = page_alloc(0);
-		if(page == NULL)
+		pp = page_alloc(0);
+		if(!pp)
 			panic("allocation fail\n");
-		page->pp_ref++;
-		if(page_insert(e->env_pgdir, page, (void*)p, PTE_U | PTE_W) < 0)
+		pp->pp_ref++;
+		if(page_insert(e->env_pgdir, pp, (void*)p, PTE_U | PTE_W) < 0)
 			panic("region_alloc error\n");
 	}
 

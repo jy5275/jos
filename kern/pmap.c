@@ -426,22 +426,21 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
-	pde_t pde = pgdir[PDX(va)];
+	pde_t *pde = &pgdir[PDX(va)];
 
-	if (!(pde & PTE_P)) {	// This page table page does not exist yet
+	if (!(*pde & PTE_P)) {	// This page table page does not exist yet
 		if (create == true) {
-			struct PageInfo *newpginfo = page_alloc(1);
-			if (newpginfo == NULL) 	// allocation fails
+			struct PageInfo *pp = page_alloc(1);
+			if (pp == NULL) 	// allocation fails
 				return NULL;
-			newpginfo->pp_ref++;
-			physaddr_t newpgbase = page2pa(newpginfo);
-			pgdir[PDX(va)] = newpgbase | PTE_P | PTE_W | PTE_U;
-			pde = pgdir[PDX(va)];	// ???
+			pp->pp_ref++;
+			// pde of new page table should be set as PTE_U! 
+			*pde = page2pa(pp) | PTE_P | PTE_W | PTE_U;
 		}
 		else
 			return NULL; 
 	}
-	pte_t *pgtab = (pte_t*)KADDR(PTE_ADDR(pde));
+	pte_t *pgtab = (pte_t*)KADDR(PTE_ADDR(*pde));
 	
 	return &pgtab[PTX(va)];
 }
