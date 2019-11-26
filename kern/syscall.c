@@ -78,9 +78,7 @@ sys_yield(void)
 // Returns envid of new environment, or < 0 on error.  Errors are:
 //	-E_NO_FREE_ENV if no free environment is available.
 //	-E_NO_MEM on memory exhaustion.
-static envid_t
-sys_exofork(void)
-{
+static envid_t sys_exofork(void) {
 	// Create the new environment with env_alloc(), from kern/env.c.
 	// It should be left as env_alloc created it, except that
 	// status is set to ENV_NOT_RUNNABLE, and the register set is copied
@@ -90,11 +88,15 @@ sys_exofork(void)
 	// LAB 4: Your code here.
 	struct Env *e;
 	int r;
-	if ((r = env_alloc(&e, 0)) < 0)
+	if ((r = env_alloc(&e, 0)) < 0) {
+		cprintf("sys_exofork: new env allocation failed.\n");
 		return r;
+	}
 	e->env_status = ENV_NOT_RUNNABLE;
 	e->env_tf = curenv->env_tf;
 	e->env_parent_id = curenv->env_id;
+
+	// tweaked work to make it seems to return 0 in child process
 	e->env_tf.tf_regs.reg_eax = 0;
 
 	return e->env_id;
