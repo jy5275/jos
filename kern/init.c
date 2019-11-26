@@ -45,6 +45,7 @@ i386_init(void)
 	// Your code here:
 
 	// Starting non-boot CPUs
+	lock_kernel();
 	boot_aps();
 
 	// Start fs.
@@ -116,7 +117,11 @@ mp_main(void)
 	//
 	// Your code here:
 
+	lock_kernel();
+	sched_yield();
+
 	// Remove this after you finish Exercise 6
+	cprintf("==============ERROR=================\n");
 	for (;;);
 }
 
