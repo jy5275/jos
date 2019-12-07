@@ -417,8 +417,10 @@ env_create(uint8_t *binary, enum EnvType type)
 		panic("Env alloc fail");
 	e->env_type = type;
 	load_icode(e, binary);
-	//lcr3(PADDR(e->env_pgdir));
-
+	if (type == ENV_TYPE_FS)
+		e->env_tf.tf_eflags |= FL_IOPL_3;
+	//else 
+	//	e->env_tf.tf_eflags &= FL_IOPL_0;
 }
 
 //

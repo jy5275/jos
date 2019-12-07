@@ -298,10 +298,25 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 }
 
 // Copy the mappings for shared pages into the child address space.
-static int
-copy_shared_pages(envid_t child)
-{
+static int copy_shared_pages(envid_t child) {
 	// LAB 5: Your code here.
+	int r;
+	for (int i = PDX(UTEXT); i < PDX(UTOP); i++) {
+		if (!(((pde_t*)uvpd)[i] & PTE_P))		// PDE i not exist
+			continue;
+		for (int j = 0; j < NPTENTRIES; j++) {
+			int pn = PGNUM(PGADDR(i, j, 0));
+			if (pn == PGNUM(UXSTACKTOP - PGSIZE))
+				break;
+			pte_t *pte = &(((pte_t*)uvpt)[pn]);
+			if ((*pte & PTE_P) && (*pte & PTE_SHARE)) {	// PTE pn not exist
+				if ((r = sys_page_map(0, (void*)(pn*PGSIZE), child, 
+					(void*)(pn*PGSIZE), *pte & PTE_SYSCALL)) < 0)
+					return r;
+			}
+		}
+	}
+
 	return 0;
 }
 

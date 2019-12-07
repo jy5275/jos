@@ -19,9 +19,8 @@
 //   If 'pg' is null, pass sys_ipc_recv a value that it will understand
 //   as meaning "no page".  (Zero is not the right value, since that's
 //   a perfectly valid place to map a page.)
-int32_t
-ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
-{
+// 发送者进程号, 接收共享页地址pg, 共享页映射权限位perm
+int32_t ipc_recv(envid_t *from_env_store, void *pg, int *perm_store) {
 	// LAB 4: Your code here.
 	int r;
 	if (pg == NULL)
@@ -31,8 +30,10 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 		if (from_env_store)	*from_env_store = 0;
 		return r;
 	}
-	if (perm_store)	*perm_store = thisenv->env_ipc_perm;
-	if (from_env_store)	*from_env_store = thisenv->env_ipc_from;
+	if (perm_store)	
+		*perm_store = thisenv->env_ipc_perm;
+	if (from_env_store)	
+		*from_env_store = thisenv->env_ipc_from;
 	return thisenv->env_ipc_value;
 }
 
@@ -44,9 +45,8 @@ ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
 //   Use sys_yield() to be CPU-friendly.
 //   If 'pg' is null, pass sys_ipc_try_send a value that it will understand
 //   as meaning "no page".  (Zero is not the right value.)
-void
-ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
-{
+// 接收者进程号, int32信号val, 共享页面地址pg, 权限位perm
+void ipc_send(envid_t to_env, uint32_t val, void *pg, int perm) {
 	// LAB 4: Your code here.
 	int r;
 	if (pg == NULL)

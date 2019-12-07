@@ -12,9 +12,7 @@ union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
 // type: request code, passed as the simple integer IPC value.
 // dstva: virtual address at which to receive reply page, 0 if none.
 // Returns result from the file server.
-static int
-fsipc(unsigned type, void *dstva)
-{
+static int fsipc(unsigned type, void *dstva) {
 	static envid_t fsenv;
 	if (fsenv == 0)
 		fsenv = ipc_find_env(ENV_TYPE_FS);
@@ -51,9 +49,7 @@ struct Dev devfile =
 // 	The file descriptor index on success
 // 	-E_BAD_PATH if the path is too long (>= MAXPATHLEN)
 // 	< 0 for other errors.
-int
-open(const char *path, int mode)
-{
+int open(const char *path, int mode) {
 	// Find an unused file descriptor page using fd_alloc.
 	// Then send a file-open request to the file server.
 	// Include 'path' and 'omode' in request,
@@ -74,6 +70,7 @@ open(const char *path, int mode)
 	if (strlen(path) >= MAXPATHLEN)
 		return -E_BAD_PATH;
 
+	// Finds the smallest unmapped fd page i in [0,MAXFD)
 	if ((r = fd_alloc(&fd)) < 0)
 		return r;
 
@@ -133,15 +130,20 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 // Returns:
 //	 The number of bytes successfully written.
 //	 < 0 on error.
-static ssize_t
-devfile_write(struct Fd *fd, const void *buf, size_t n)
-{
+static ssize_t devfile_write(struct Fd *fd, const void *buf, size_t n) {
 	// Make an FSREQ_WRITE request to the file system server.  Be
 	// careful: fsipcbuf.write.req_buf is only so large, but
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	int r;
+	if (n > sizeof(fsipcbuf.write.req_buf))
+		n = sizeof(fsipcbuf.write.req_buf);
+
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	memmove(fsipcbuf.write.req_buf, buf, n);
+	return fsipc(FSREQ_WRITE, NULL);
 }
 
 static int

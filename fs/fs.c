@@ -43,7 +43,7 @@ free_block(uint32_t blockno)
 	// Blockno zero is the null pointer of block numbers.
 	if (blockno == 0)
 		panic("attempt to free zero block");
-	bitmap[blockno/32] |= 1<<(blockno%32);
+	bitmap[blockno / 32] |= 1 << (blockno % 32);
 }
 
 // Search the bitmap for a free block and allocate it.  When you
@@ -54,15 +54,19 @@ free_block(uint32_t blockno)
 // -E_NO_DISK if we are out of blocks.
 //
 // Hint: use free_block as an example for manipulating the bitmap.
-int
-alloc_block(void)
-{
+int alloc_block(void) {
 	// The bitmap consists of one or more blocks.  A single bitmap block
 	// contains the in-use bits for BLKBITSIZE blocks.  There are
 	// super->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
+	for (int i = 1; i < super->s_nblocks; i++) {
+		if (block_is_free(i)) {
+			bitmap[i / 32] &= ~(1 << (i % 32));
+			flush_block(bitmap);
+			return i;
+		}
+	}
 	return -E_NO_DISK;
 }
 
@@ -131,11 +135,39 @@ fs_init(void)
 //
 // Analogy: This is like pgdir_walk for files.
 // Hint: Don't forget to clear any block you allocate.
+
+// Note: Allocate only the indirect blk, the real blk of file `f` may not be prsent
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
-       // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+	// LAB 5: Your code here.
+	int r;
+	if (filebno >= NDIRECT + NINDIRECT)
+		return -E_INVAL;
+
+	if (filebno <= NDIRECT) {	// Direct block
+		if (ppdiskbno)
+			*ppdiskbno = &(f->f_direct[filebno]);
+		return 0;
+	}
+
+	// Indirect block
+	if (!f->f_indirect) {
+		if (alloc) {
+			if ((r = alloc_block()) < 0)
+				return r;
+			f->f_indirect = r;
+			memset(diskaddr(r), 0, BLKSIZE);
+			flush_block(diskaddr(r));	// write back on disk
+		}
+		else {
+			return -E_NOT_FOUND;
+		}
+	}
+	uint32_t *indb = diskaddr(f->f_indirect);
+	if (ppdiskbno)
+		*ppdiskbno = &(indb[filebno - NDIRECT]);
+	return 0;
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -146,11 +178,24 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 //	-E_INVAL if filebno is out of range.
 //
 // Hint: Use file_block_walk and alloc_block.
-int
-file_get_block(struct File *f, uint32_t filebno, char **blk)
-{
-       // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+int file_get_block(struct File *f, uint32_t filebno, char **blk) {
+	// LAB 5: Your code here.
+	int r;
+	uint32_t *pblkno;
+	if ((r = file_block_walk(f, filebno, &pblkno, 1)) < 0)
+		return r;
+
+	// Allocate a new blk if the filebno'th blk doesn't exist
+	// Then flush because we set it to all 0
+	if (*pblkno == 0) {
+		if ((r = alloc_block()) < 0)
+			return -E_NO_DISK;
+		*pblkno = r;
+		memset(diskaddr(r), 0, BLKSIZE);
+		flush_block(diskaddr(r));
+	}
+	*blk = diskaddr(*pblkno);
+	return 0;
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.
@@ -161,7 +206,7 @@ static int
 dir_lookup(struct File *dir, const char *name, struct File **file)
 {
 	int r;
-	uint32_t i, j, nblock;
+	uint32_t nblock;
 	char *blk;
 	struct File *f;
 
@@ -170,11 +215,13 @@ dir_lookup(struct File *dir, const char *name, struct File **file)
 	// is always a multiple of the file system's block size.
 	assert((dir->f_size % BLKSIZE) == 0);
 	nblock = dir->f_size / BLKSIZE;
-	for (i = 0; i < nblock; i++) {
+	for (int i = 0; i < nblock; i++) {
 		if ((r = file_get_block(dir, i, &blk)) < 0)
 			return r;
+		// head of a blk must be head of a `struct File` entry
 		f = (struct File*) blk;
-		for (j = 0; j < BLKFILES; j++)
+		// Iterate through all entries of this blk
+		for (int j = 0; j < BLKFILES; j++)
 			if (strcmp(f[j].f_name, name) == 0) {
 				*file = &f[j];
 				return 0;
@@ -185,9 +232,7 @@ dir_lookup(struct File *dir, const char *name, struct File **file)
 
 // Set *file to point at a free File structure in dir.  The caller is
 // responsible for filling in the File fields.
-static int
-dir_alloc_file(struct File *dir, struct File **file)
-{
+static int dir_alloc_file(struct File *dir, struct File **file) {
 	int r;
 	uint32_t nblock, i, j;
 	char *blk;
@@ -195,28 +240,37 @@ dir_alloc_file(struct File *dir, struct File **file)
 
 	assert((dir->f_size % BLKSIZE) == 0);
 	nblock = dir->f_size / BLKSIZE;
+
+	// Iterate through all blks of `dir`, 
+	//  find an empty `struct File` slot then return
 	for (i = 0; i < nblock; i++) {
+		// `file_get_blk` will allocate a new blk if i'th blk of dir
+		//   doesn't exist.
 		if ((r = file_get_block(dir, i, &blk)) < 0)
 			return r;
 		f = (struct File*) blk;
+		// Iterate through all `struct File` entries of this blk 
 		for (j = 0; j < BLKFILES; j++)
-			if (f[j].f_name[0] == '\0') {
+			if (f[j].f_name[0] == '\0') {	// Find it!
 				*file = &f[j];
 				return 0;
 			}
 	}
+
+	// Fall here if entries in `dir` exactly fulfill several blocks
+	// Assign a new blk for this dir file
 	dir->f_size += BLKSIZE;
 	if ((r = file_get_block(dir, i, &blk)) < 0)
 		return r;
+
+	// Create the new file on entry 0
 	f = (struct File*) blk;
 	*file = &f[0];
 	return 0;
 }
 
 // Skip over slashes.
-static const char*
-skip_slash(const char *p)
-{
+static const char *skip_slash(const char *p) {
 	while (*p == '/')
 		p++;
 	return p;
@@ -261,6 +315,7 @@ walk_path(const char *path, struct File **pdir, struct File **pf, char *lastelem
 			return -E_NOT_FOUND;
 
 		if ((r = dir_lookup(dir, name, &f)) < 0) {
+			// if in end-level dir but file not found
 			if (r == -E_NOT_FOUND && *path == '\0') {
 				if (pdir)
 					*pdir = dir;
@@ -284,17 +339,18 @@ walk_path(const char *path, struct File **pdir, struct File **pf, char *lastelem
 
 // Create "path".  On success set *pf to point at the file and return 0.
 // On error return < 0.
-int
-file_create(const char *path, struct File **pf)
-{
+int file_create(const char *path, struct File **pf) {
 	char name[MAXNAMELEN];
 	int r;
 	struct File *dir, *f;
 
+	// File exists!
 	if ((r = walk_path(path, &dir, &f, name)) == 0)
 		return -E_FILE_EXISTS;
+	// Other errors...
 	if (r != -E_NOT_FOUND || dir == 0)
 		return r;
+	// Normal task - create this file
 	if ((r = dir_alloc_file(dir, &f)) < 0)
 		return r;
 
@@ -330,6 +386,7 @@ file_read(struct File *f, void *buf, size_t count, off_t offset)
 	for (pos = offset; pos < offset + count; ) {
 		if ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0)
 			return r;
+		// Read full blk or read until count
 		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
 		memmove(buf, blk + pos % BLKSIZE, bn);
 		pos += bn;
@@ -427,13 +484,10 @@ file_set_size(struct File *f, off_t newsize)
 // Loop over all the blocks in file.
 // Translate the file block number into a disk block number
 // and then check whether that disk block is dirty.  If so, write it out.
-void
-file_flush(struct File *f)
-{
-	int i;
+void file_flush(struct File *f) {
 	uint32_t *pdiskbno;
 
-	for (i = 0; i < (f->f_size + BLKSIZE - 1) / BLKSIZE; i++) {
+	for (int i = 0; i < (f->f_size + BLKSIZE - 1) / BLKSIZE; i++) {
 		if (file_block_walk(f, i, &pdiskbno, 0) < 0 ||
 		    pdiskbno == NULL || *pdiskbno == 0)
 			continue;

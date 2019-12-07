@@ -34,7 +34,7 @@ fd2data(struct Fd *fd)
 
 // Finds the smallest i from 0 to MAXFD-1 that doesn't have
 // its fd page mapped.
-// Sets *fd_store to the corresponding fd page virtual address.
+// Sets *fd_store to the corresponding [fd page virtual address].
 //
 // fd_alloc does NOT actually allocate an fd page.
 // It is up to the caller to allocate the page somehow.
@@ -42,18 +42,13 @@ fd2data(struct Fd *fd)
 // without allocating the first page we return, we'll return the same
 // page the second time.
 //
-// Hint: Use INDEX2FD.
-//
 // Returns 0 on success, < 0 on error.  Errors are:
 //	-E_MAX_FD: no more file descriptors
 // On error, *fd_store is set to 0.
-int
-fd_alloc(struct Fd **fd_store)
-{
-	int i;
+int fd_alloc(struct Fd **fd_store) {
 	struct Fd *fd;
 
-	for (i = 0; i < MAXFD; i++) {
+	for (int i = 0; i < MAXFD; i++) {
 		fd = INDEX2FD(i);
 		if ((uvpd[PDX(fd)] & PTE_P) == 0 || (uvpt[PGNUM(fd)] & PTE_P) == 0) {
 			*fd_store = fd;
@@ -70,9 +65,8 @@ fd_alloc(struct Fd **fd_store)
 // Returns 0 on success (the page is in range and mapped), < 0 on error.
 // Errors are:
 //	-E_INVAL: fdnum was either not in range or not mapped.
-int
-fd_lookup(int fdnum, struct Fd **fd_store)
-{
+// Wrapped `(struct Fd*)INDEX2FD(fdnum)`
+int fd_lookup(int fdnum, struct Fd **fd_store) {
 	struct Fd *fd;
 
 	if (fdnum < 0 || fdnum >= MAXFD) {
@@ -97,9 +91,7 @@ fd_lookup(int fdnum, struct Fd **fd_store)
 // If 'must_exist' is 1, then fd_close returns -E_INVAL when passed a
 // closed or nonexistent file descriptor.
 // Returns 0 on success, < 0 on error.
-int
-fd_close(struct Fd *fd, bool must_exist)
-{
+int fd_close(struct Fd *fd, bool must_exist) {
 	struct Fd *fd2;
 	struct Dev *dev;
 	int r;

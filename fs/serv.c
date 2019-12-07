@@ -48,12 +48,9 @@ struct OpenFile opentab[MAXOPEN] = {
 // Virtual address at which to receive page mappings containing client requests.
 union Fsipc *fsreq = (union Fsipc *)0x0ffff000;
 
-void
-serve_init(void)
-{
-	int i;
+void serve_init(void) {
 	uintptr_t va = FILEVA;
-	for (i = 0; i < MAXOPEN; i++) {
+	for (int i = 0; i < MAXOPEN; i++) {
 		opentab[i].o_fileid = i;
 		opentab[i].o_fd = (struct Fd*) va;
 		va += PGSIZE;
@@ -61,13 +58,11 @@ serve_init(void)
 }
 
 // Allocate an open file.
-int
-openfile_alloc(struct OpenFile **o)
-{
-	int i, r;
+int openfile_alloc(struct OpenFile **o) {
+	int r;
 
 	// Find an available open-file table entry
-	for (i = 0; i < MAXOPEN; i++) {
+	for (int i = 0; i < MAXOPEN; i++) {
 		switch (pageref(opentab[i].o_fd)) {
 		case 0:
 			if ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P|PTE_U|PTE_W)) < 0)
@@ -84,9 +79,7 @@ openfile_alloc(struct OpenFile **o)
 }
 
 // Look up an open file for envid.
-int
-openfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po)
-{
+int openfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po) {
 	struct OpenFile *o;
 
 	o = &opentab[fileid % MAXOPEN];
@@ -99,14 +92,11 @@ openfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po)
 // Open req->req_path in mode req->req_omode, storing the Fd page and
 // permissions to return to the calling environment in *pg_store and
 // *perm_store respectively.
-int
-serve_open(envid_t envid, struct Fsreq_open *req,
-	   void **pg_store, int *perm_store)
-{
+int serve_open(envid_t envid, struct Fsreq_open *req, 
+		void **pg_store, int *perm_store) {
 	char path[MAXPATHLEN];
 	struct File *f;
-	int fileid;
-	int r;
+	int fileid, r;
 	struct OpenFile *o;
 
 	if (debug)
@@ -204,9 +194,7 @@ serve_set_size(envid_t envid, struct Fsreq_set_size *req)
 // in ipc->read.req_fileid.  Return the bytes read from the file to
 // the caller in ipc->readRet, then update the seek position.  Returns
 // the number of bytes successfully read, or < 0 on error.
-int
-serve_read(envid_t envid, union Fsipc *ipc)
-{
+int serve_read(envid_t envid, union Fsipc *ipc) {
 	struct Fsreq_read *req = &ipc->read;
 	struct Fsret_read *ret = &ipc->readRet;
 
@@ -214,7 +202,16 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
+	int r;
+	struct OpenFile *o;
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
+
+	int req_n = MIN(req->req_n, PGSIZE);
+	if ((r = file_read(o->o_file, ret->ret_buf, req_n, o->o_fd->fd_offset))
+		< 0);
+	o->o_fd->fd_offset += r;
+	return r;
 }
 
 
@@ -222,14 +219,22 @@ serve_read(envid_t envid, union Fsipc *ipc)
 // the current seek position, and update the seek position
 // accordingly.  Extend the file if necessary.  Returns the number of
 // bytes written, or < 0 on error.
-int
-serve_write(envid_t envid, struct Fsreq_write *req)
-{
+int serve_write(envid_t envid, struct Fsreq_write *req) {
 	if (debug)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	int r;
+	struct OpenFile *o;
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
+
+	int req_n = MIN(req->req_n, PGSIZE);
+	if ((r = file_write(o->o_file, req->req_buf, req_n, o->o_fd->fd_offset))
+		< 0)
+		return r;
+	o->o_fd->fd_offset += r;
+	return r;
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
@@ -291,9 +296,7 @@ fshandler handlers[] = {
 	[FSREQ_SYNC] =		serve_sync
 };
 
-void
-serve(void)
-{
+void serve(void) {
 	uint32_t req, whom;
 	int perm, r;
 	void *pg;
@@ -326,9 +329,7 @@ serve(void)
 	}
 }
 
-void
-umain(int argc, char **argv)
-{
+void umain(int argc, char **argv) {
 	static_assert(sizeof(struct File) == 256);
 	binaryname = "fs";
 	cprintf("FS is running\n");
