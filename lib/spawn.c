@@ -16,9 +16,7 @@ static int copy_shared_pages(envid_t child);
 // argv: pointer to null-terminated array of pointers to strings,
 // 	 which will be passed to the child as its command-line arguments.
 // Returns child envid on success, < 0 on failure.
-int
-spawn(const char *prog, const char **argv)
-{
+int spawn(const char *prog, const char **argv) {
 	unsigned char elf_buf[512];
 	struct Trapframe child_tf;
 	envid_t child;
@@ -30,45 +28,40 @@ spawn(const char *prog, const char **argv)
 
 	// This code follows this procedure:
 	//
-	//   - Open the program file.
+	//   - Open the program file
+	//   - Read ELF header && sanity check magic number (load_icode)
+	//   - sys_exofork(): create a new envir
+	//   - child_tf = an initial Trapframe for child
+	//   - init_stack(): set up initial stk page for child
+	//   - Map all program's segments with p_type == ELF_PROG_LOAD 
+	//		into the new envir.
+	//     Use `p_flags` field in the Proghdr for each segment
+	//     to determine how to map:
 	//
-	//   - Read the ELF header, as you have before, and sanity check its
-	//     magic number.  (Check out your load_icode!)
-	//
-	//   - Use sys_exofork() to create a new environment.
-	//
-	//   - Set child_tf to an initial struct Trapframe for the child.
-	//
-	//   - Call the init_stack() function above to set up
-	//     the initial stack page for the child environment.
-	//
-	//   - Map all of the program's segments that are of p_type
-	//     ELF_PROG_LOAD into the new environment's address space.
-	//     Use the p_flags field in the Proghdr for each segment
-	//     to determine how to map the segment:
-	//
-	//	* If the ELF flags do not include ELF_PROG_FLAG_WRITE,
-	//	  then the segment contains text and read-only data.
-	//	  Use read_map() to read the contents of this segment,
-	//	  and map the pages it returns directly into the child
-	//        so that multiple instances of the same program
-	//	  will share the same copy of the program text.
-	//        Be sure to map the program text read-only in the child.
+	//	* If (!ELF_PROG_FLAG_WRITE):
+	//		// the segment contains text and RO data.
+	//		 - read_map(): read contents of this segment,
+	//		 - map the pages it returns directly into the child
+	//			so that multiple instances of the same program
+	//			share the *same* copy of the program text.
+	//       - Map the program text RO in the child.
 	//        Read_map is like read but returns a pointer to the data in
 	//        *blk rather than copying the data into another buffer.
 	//
-	//	* If the ELF segment flags DO include ELF_PROG_FLAG_WRITE,
-	//	  then the segment contains read/write data and bss.
-	//	  As with load_icode() in Lab 3, such an ELF segment
-	//	  occupies p_memsz bytes in memory, but only the FIRST
-	//	  p_filesz bytes of the segment are actually loaded
-	//	  from the executable file - you must clear the rest to zero.
-	//        For each page to be mapped for a read/write segment,
-	//        allocate a page in the parent temporarily at UTEMP,
-	//        read() the appropriate portion of the file into that page
-	//	  and/or use memset() to zero non-loaded portions.
-	//	  (You can avoid calling memset(), if you like, if
-	//	  page_alloc() returns zeroed pages already.)
+	//	* else if (ELF_PROG_FLAG_WRITE):
+	//		// the segment contains RW data and bss.
+	//		As with load_icode() in Lab 3, such an ELF segment
+	//		occupies p_memsz bytes in memory, but only the FIRST
+	//		p_filesz bytes of the segment are actually loaded
+	//		from the executable file - you must clear the rest to zero.
+	//		
+	//		For each page to be mapped for a RW segment:
+	//			allocate a page in the parent temporarily at UTEMP,
+	//			read() the appropriate portion of the file into that page
+	//			and/or use memset() to zero non-loaded portions.
+	//			(You can avoid calling memset(), if you like, if
+	//			page_alloc() returns zeroed pages already.)
+	//
 	//        Then insert the page mapping into the child.
 	//        Look at init_stack() for inspiration.
 	//        Be sure you understand why you can't use read_map() here.
@@ -80,10 +73,10 @@ spawn(const char *prog, const char **argv)
 	//     will overlap on the same page; and it guarantees that
 	//     PGOFF(ph->p_offset) == PGOFF(ph->p_va).
 	//
-	//   - Call sys_env_set_trapframe(child, &child_tf) to set up the
-	//     correct initial eip and esp values in the child.
+	//   - sys_env_set_trapframe(child, &child_tf): set up initial 
+	//		eip and esp for child.
 	//
-	//   - Start the child process running with sys_env_set_status().
+	//   - sys_env_set_status(): start the child running.
 
 	if ((r = open(prog, O_RDONLY)) < 0)
 		return r;
@@ -144,12 +137,11 @@ error:
 	return r;
 }
 
+
 // Spawn, taking command-line arguments array directly on the stack.
 // NOTE: Must have a sentinal of NULL at the end of the args
 // (none of the args may be NULL).
-int
-spawnl(const char *prog, const char *arg0, ...)
-{
+int spawnl(const char *prog, const char *arg0, ...) {
 	// We calculate argc by advancing the args until we hit NULL.
 	// The contract of the function guarantees that the last
 	// argument will always be NULL, and that none of the other
@@ -260,6 +252,8 @@ error:
 	return r;
 }
 
+
+// Read from ELF file fd and map the segments into child env
 static int
 map_segment(envid_t child, uintptr_t va, size_t memsz,
 	int fd, size_t filesz, off_t fileoffset, int perm)
@@ -268,7 +262,6 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 	void *blk;
 
 	//cprintf("map_segment %x+%x\n", va, memsz);
-
 	if ((i = PGOFF(va))) {
 		va -= i;
 		memsz += i;
@@ -276,10 +269,10 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 		fileoffset -= i;
 	}
 
-	for (i = 0; i < memsz; i += PGSIZE) {
+	for (i = 0; i < memsz; i += PGSIZE) {		// i is addr offset
 		if (i >= filesz) {
 			// allocate a blank page
-			if ((r = sys_page_alloc(child, (void*) (va + i), perm)) < 0)
+			if ((r = sys_page_alloc(child, (void*)(va + i), perm)) < 0)
 				return r;
 		} else {
 			// from file
@@ -304,14 +297,16 @@ static int copy_shared_pages(envid_t child) {
 	for (int i = PDX(UTEXT); i < PDX(UTOP); i++) {
 		if (!(((pde_t*)uvpd)[i] & PTE_P))		// PDE i not exist
 			continue;
+
 		for (int j = 0; j < NPTENTRIES; j++) {
 			int pn = PGNUM(PGADDR(i, j, 0));
 			if (pn == PGNUM(UXSTACKTOP - PGSIZE))
 				break;
 			pte_t *pte = &(((pte_t*)uvpt)[pn]);
+
 			if ((*pte & PTE_P) && (*pte & PTE_SHARE)) {	// PTE pn not exist
-				if ((r = sys_page_map(0, (void*)(pn*PGSIZE), child, 
-					(void*)(pn*PGSIZE), *pte & PTE_SYSCALL)) < 0)
+				if ((r = sys_page_map(0, (void*)(pn * PGSIZE), child, 
+					(void*)(pn * PGSIZE), *pte & PTE_SYSCALL)) < 0)
 					return r;
 			}
 		}

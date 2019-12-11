@@ -168,9 +168,7 @@ try_open:
 
 // Set the size of req->req_fileid to req->req_size bytes, truncating
 // or extending the file as necessary.
-int
-serve_set_size(envid_t envid, struct Fsreq_set_size *req)
-{
+int serve_set_size(envid_t envid, struct Fsreq_set_size *req) {
 	struct OpenFile *o;
 	int r;
 
@@ -199,7 +197,8 @@ int serve_read(envid_t envid, union Fsipc *ipc) {
 	struct Fsret_read *ret = &ipc->readRet;
 
 	if (debug)
-		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+		cprintf("serve_read %08x %08x %08x\n", envid, 
+			req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
 	int r;
@@ -239,9 +238,7 @@ int serve_write(envid_t envid, struct Fsreq_write *req) {
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the
 // caller in ipc->statRet.
-int
-serve_stat(envid_t envid, union Fsipc *ipc)
-{
+int serve_stat(envid_t envid, union Fsipc *ipc) {
 	struct Fsreq_stat *req = &ipc->stat;
 	struct Fsret_stat *ret = &ipc->statRet;
 	struct OpenFile *o;
@@ -260,9 +257,7 @@ serve_stat(envid_t envid, union Fsipc *ipc)
 }
 
 // Flush all data and metadata of req->req_fileid to disk.
-int
-serve_flush(envid_t envid, struct Fsreq_flush *req)
-{
+int serve_flush(envid_t envid, struct Fsreq_flush *req) {
 	struct OpenFile *o;
 	int r;
 
@@ -276,9 +271,7 @@ serve_flush(envid_t envid, struct Fsreq_flush *req)
 }
 
 
-int
-serve_sync(envid_t envid, union Fsipc *req)
-{
+int serve_sync(envid_t envid, union Fsipc *req) {
 	fs_sync();
 	return 0;
 }

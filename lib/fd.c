@@ -20,15 +20,11 @@
 // File descriptor manipulators
 // --------------------------------------------------------------
 
-int
-fd2num(struct Fd *fd)
-{
+int fd2num(struct Fd *fd) {
 	return ((uintptr_t) fd - FDTABLE) / PGSIZE;
 }
 
-char*
-fd2data(struct Fd *fd)
-{
+char *fd2data(struct Fd *fd) {
 	return INDEX2DATA(fd2num(fd));
 }
 
@@ -59,12 +55,11 @@ int fd_alloc(struct Fd **fd_store) {
 	return -E_MAX_OPEN;
 }
 
-// Check that fdnum is in range and mapped.
+
+// - Check that fdnum is in range and mapped.
 // If it is, set *fd_store to the fd page virtual address.
-//
-// Returns 0 on success (the page is in range and mapped), < 0 on error.
 // Errors are:
-//	-E_INVAL: fdnum was either not in range or not mapped.
+//	-E_INVAL: fdnum not in range / not mapped.
 // Wrapped `(struct Fd*)INDEX2FD(fdnum)`
 int fd_lookup(int fdnum, struct Fd **fd_store) {
 	struct Fd *fd;
@@ -84,19 +79,18 @@ int fd_lookup(int fdnum, struct Fd **fd_store) {
 	return 0;
 }
 
+
 // Frees file descriptor 'fd' by closing the corresponding file
 // and unmapping the file descriptor page.
-// If 'must_exist' is 0, then fd can be a closed or nonexistent file
-// descriptor; the function will return 0 and have no other effect.
-// If 'must_exist' is 1, then fd_close returns -E_INVAL when passed a
-// closed or nonexistent file descriptor.
+// if (!must_exist) fd can be closed / nonexistent; return 0 and do nothing
+// if (must_exist) returns -E_INVAL when passed a closed or nonexistent fd.
+//
 // Returns 0 on success, < 0 on error.
 int fd_close(struct Fd *fd, bool must_exist) {
 	struct Fd *fd2;
 	struct Dev *dev;
 	int r;
-	if ((r = fd_lookup(fd2num(fd), &fd2)) < 0
-	    || fd != fd2)
+	if ((r = fd_lookup(fd2num(fd), &fd2)) < 0 || fd != fd2)
 		return (must_exist ? r : 0);
 	if ((r = dev_lookup(fd->fd_dev_id, &dev)) >= 0) {
 		if (dev->dev_close)
@@ -115,17 +109,16 @@ int fd_close(struct Fd *fd, bool must_exist) {
 // File functions
 // --------------------------------------------------------------
 
-static struct Dev *devtab[] =
-{
+static struct Dev *devtab[] = {
 	&devfile,
 	&devpipe,
 	&devcons,
 	0
 };
 
-int
-dev_lookup(int dev_id, struct Dev **dev)
-{
+
+// 按照dev_id遍历检索devtab表
+int dev_lookup(int dev_id, struct Dev **dev) {
 	int i;
 	for (i = 0; devtab[i]; i++)
 		if (devtab[i]->dev_id == dev_id) {
@@ -137,9 +130,10 @@ dev_lookup(int dev_id, struct Dev **dev)
 	return -E_INVAL;
 }
 
-int
-close(int fdnum)
-{
+
+// close(fdnum): 将 fdnum 转换为`struct Fd` 
+// fd_close(fd,1): 1.调用设备close API, 2.umap(fd)
+int close(int fdnum) {
 	struct Fd *fd;
 	int r;
 
@@ -149,22 +143,20 @@ close(int fdnum)
 		return fd_close(fd, 1);
 }
 
-void
-close_all(void)
-{
+
+void close_all(void) {
 	int i;
 	for (i = 0; i < MAXFD; i++)
 		close(i);
 }
+
 
 // Make file descriptor 'newfdnum' a duplicate of file descriptor 'oldfdnum'.
 // For instance, writing onto either file descriptor will affect the
 // file and the file offset of the other.
 // Closes any previously open file descriptor at 'newfdnum'.
 // This is implemented using virtual memory tricks (of course!).
-int
-dup(int oldfdnum, int newfdnum)
-{
+int dup(int oldfdnum, int newfdnum) {
 	int r;
 	char *ova, *nva;
 	pte_t pte;
@@ -192,15 +184,13 @@ err:
 	return r;
 }
 
-ssize_t
-read(int fdnum, void *buf, size_t n)
-{
+
+ssize_t read(int fdnum, void *buf, size_t n) {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
 
-	if ((r = fd_lookup(fdnum, &fd)) < 0
-	    || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	if ((r=fd_lookup(fdnum, &fd))<0 || (r=dev_lookup(fd->fd_dev_id, &dev))<0)
 		return r;
 	if ((fd->fd_omode & O_ACCMODE) == O_WRONLY) {
 		cprintf("[%08x] read %d -- bad mode\n", thisenv->env_id, fdnum);
@@ -211,9 +201,8 @@ read(int fdnum, void *buf, size_t n)
 	return (*dev->dev_read)(fd, buf, n);
 }
 
-ssize_t
-readn(int fdnum, void *buf, size_t n)
-{
+
+ssize_t readn(int fdnum, void *buf, size_t n) {
 	int m, tot;
 
 	for (tot = 0; tot < n; tot += m) {
@@ -226,9 +215,8 @@ readn(int fdnum, void *buf, size_t n)
 	return tot;
 }
 
-ssize_t
-write(int fdnum, const void *buf, size_t n)
-{
+
+ssize_t write(int fdnum, const void *buf, size_t n) {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
@@ -248,9 +236,8 @@ write(int fdnum, const void *buf, size_t n)
 	return (*dev->dev_write)(fd, buf, n);
 }
 
-int
-seek(int fdnum, off_t offset)
-{
+
+int seek(int fdnum, off_t offset) {
 	int r;
 	struct Fd *fd;
 
@@ -260,14 +247,12 @@ seek(int fdnum, off_t offset)
 	return 0;
 }
 
-int
-ftruncate(int fdnum, off_t newsize)
-{
+
+int ftruncate(int fdnum, off_t newsize) {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
-	if ((r = fd_lookup(fdnum, &fd)) < 0
-	    || (r = dev_lookup(fd->fd_dev_id, &dev)) < 0)
+	if ((r=fd_lookup(fdnum, &fd))<0 || (r=dev_lookup(fd->fd_dev_id, &dev))<0)
 		return r;
 	if ((fd->fd_omode & O_ACCMODE) == O_RDONLY) {
 		cprintf("[%08x] ftruncate %d -- bad mode\n",
@@ -279,9 +264,8 @@ ftruncate(int fdnum, off_t newsize)
 	return (*dev->dev_trunc)(fd, newsize);
 }
 
-int
-fstat(int fdnum, struct Stat *stat)
-{
+
+int fstat(int fdnum, struct Stat *stat) {
 	int r;
 	struct Dev *dev;
 	struct Fd *fd;
@@ -298,9 +282,8 @@ fstat(int fdnum, struct Stat *stat)
 	return (*dev->dev_stat)(fd, stat);
 }
 
-int
-stat(const char *path, struct Stat *stat)
-{
+
+int stat(const char *path, struct Stat *stat) {
 	int fd, r;
 
 	if ((fd = open(path, O_RDONLY)) < 0)

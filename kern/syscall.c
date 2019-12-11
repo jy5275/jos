@@ -37,16 +37,12 @@ bad:
 
 // Read a character from the system console without blocking.
 // Returns the character, or 0 if there is no input waiting.
-static int
-sys_cgetc(void)
-{
+static int sys_cgetc(void) {
 	return cons_getc();
 }
 
 // Returns the current environment's envid.
-static envid_t
-sys_getenvid(void)
-{
+static envid_t sys_getenvid(void) {
 	return curenv->env_id;
 }
 
@@ -55,9 +51,7 @@ sys_getenvid(void)
 // Returns 0 on success, < 0 on error.  Errors are:
 //	-E_BAD_ENV if environment envid doesn't currently exist,
 //		or the caller doesn't have permission to change envid.
-static int
-sys_env_destroy(envid_t envid)
-{
+static int sys_env_destroy(envid_t envid) {
 	int r;
 	struct Env *e;
 
@@ -68,9 +62,7 @@ sys_env_destroy(envid_t envid)
 }
 
 // Deschedule current environment and pick a different one to run.
-static void
-sys_yield(void)
-{
+static void sys_yield(void) {
 	sched_yield();
 }
 
@@ -109,9 +101,7 @@ static envid_t sys_exofork(void) {
 //	-E_BAD_ENV if environment envid doesn't currently exist,
 //		or the caller doesn't have permission to change envid.
 //	-E_INVAL if status is not a valid status for an environment.
-static int
-sys_env_set_status(envid_t envid, int status)
-{
+static int sys_env_set_status(envid_t envid, int status) {
 	// Hint: Use the 'envid2env' function from kern/env.c to translate an
 	// envid to a struct Env.
 	// You should set envid2env's third argument to 1, which will
@@ -130,22 +120,24 @@ sys_env_set_status(envid_t envid, int status)
 }
 
 // Set envid's trap frame to 'tf'.
-// tf is modified to make sure that user environments always run at code
-// protection level 3 (CPL 3), interrupts enabled, and IOPL of 0.
+// tf is modified to make sure that user environments always run at:
+//  - code protection level 3 (CPL 3), 
+//  - interrupts enabled, 
+//  - IOPL of 0.
 //
 // Returns 0 on success, < 0 on error.  Errors are:
 //	-E_BAD_ENV if environment envid doesn't currently exist,
 //		or the caller doesn't have permission to change envid.
 static int sys_env_set_trapframe(envid_t envid, struct Trapframe *tf) {
 	// LAB 5: Your code here.
-	// Remember to check whether the user has supplied us with a good
-	// address!
+	// Remember to check whether the user has supplied a good addr
 	struct Env *e;
 	int r;
 	if ((r = envid2env(envid, &e, 1)) < 0)
 		return r;
 	user_mem_assert(e, tf, sizeof(struct Trapframe), PTE_U);
 	e->env_tf = *tf;
+	e->env_tf.tf_eflags &= ~FL_IOPL_MASK;
 	e->env_tf.tf_cs = GD_UT | 3;
 	e->env_tf.tf_eflags |= FL_IF;
 	return 0;
@@ -159,9 +151,7 @@ static int sys_env_set_trapframe(envid_t envid, struct Trapframe *tf) {
 // Returns 0 on success, < 0 on error.  Errors are:
 //	-E_BAD_ENV if environment envid doesn't currently exist,
 //		or the caller doesn't have permission to change envid.
-static int
-sys_env_set_pgfault_upcall(envid_t envid, void *func)
-{
+static int sys_env_set_pgfault_upcall(envid_t envid, void *func) {
 	// LAB 4: Your code here.
 	struct Env *e;
 	int r;
