@@ -144,9 +144,7 @@ trap_init(void)
 }
 
 // Initialize and load the per-CPU TSS and IDT
-void
-trap_init_percpu(void)
-{
+void trap_init_percpu(void) {
 	// The example code here sets up the Task State Segment (TSS) and
 	// the TSS descriptor for CPU 0. But it is incorrect if we are
 	// running on other CPUs because each CPU has its own kernel stack.

@@ -120,11 +120,12 @@ static struct Dev *devtab[] = {
 // 按照dev_id遍历检索devtab表
 int dev_lookup(int dev_id, struct Dev **dev) {
 	int i;
-	for (i = 0; devtab[i]; i++)
+	for (i = 0; devtab[i]; i++) {
 		if (devtab[i]->dev_id == dev_id) {
 			*dev = devtab[i];
 			return 0;
 		}
+	}
 	cprintf("[%08x] unknown device type %d\n", thisenv->env_id, dev_id);
 	*dev = 0;
 	return -E_INVAL;

@@ -2,9 +2,7 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-void
-cputchar(int ch)
-{
+void cputchar(int ch) {
 	char c = ch;
 
 	// Unlike standard Unix's putchar,
@@ -12,9 +10,7 @@ cputchar(int ch)
 	sys_cputs(&c, 1);
 }
 
-int
-getchar(void)
-{
+int getchar(void) {
 	unsigned char c;
 	int r;
 
@@ -48,9 +44,7 @@ struct Dev devcons = {
 	.dev_stat 	=	devcons_stat
 };
 
-int
-iscons(int fdnum)
-{
+int iscons(int fdnum) {
 	int r;
 	struct Fd *fd;
 
@@ -59,9 +53,7 @@ iscons(int fdnum)
 	return fd->fd_dev_id == devcons.dev_id;
 }
 
-int
-opencons(void)
-{
+int opencons(void) {
 	int r;
 	struct Fd* fd;
 
@@ -74,16 +66,14 @@ opencons(void)
 	return fd2num(fd);
 }
 
-static ssize_t
-devcons_read(struct Fd *fd, void *vbuf, size_t n)
-{
+static ssize_t devcons_read(struct Fd *fd, void *vbuf, size_t n) {
 	int c;
 
 	if (n == 0)
 		return 0;
 
 	while ((c = sys_cgetc()) == 0)
-		sys_yield();
+		sys_yield();	// 没读到就挂起等会再来
 	if (c < 0)
 		return c;
 	if (c == 0x04)	// ctl-d is eof
@@ -92,9 +82,7 @@ devcons_read(struct Fd *fd, void *vbuf, size_t n)
 	return 1;
 }
 
-static ssize_t
-devcons_write(struct Fd *fd, const void *vbuf, size_t n)
-{
+static ssize_t devcons_write(struct Fd *fd, const void *vbuf, size_t n) {
 	int tot, m;
 	char buf[128];
 
@@ -110,17 +98,12 @@ devcons_write(struct Fd *fd, const void *vbuf, size_t n)
 	return tot;
 }
 
-static int
-devcons_close(struct Fd *fd)
-{
+static int devcons_close(struct Fd *fd) {
 	USED(fd);
-
 	return 0;
 }
 
-static int
-devcons_stat(struct Fd *fd, struct Stat *stat)
-{
+static int devcons_stat(struct Fd *fd, struct Stat *stat) {
 	strcpy(stat->st_name, "<cons>");
 	return 0;
 }

@@ -18,9 +18,7 @@ static int sys_env_destroy(envid_t envid);
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
-static void
-sys_cputs(const char *s, size_t len)
-{
+static void sys_cputs(const char *s, size_t len) {
 	// Check that the user has permission to read memory [s, s+len).
 	// Destroy the environment if not.
 

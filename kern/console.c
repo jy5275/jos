@@ -49,9 +49,7 @@ delay(void)
 
 static bool serial_exists;
 
-static int
-serial_proc_data(void)
-{
+static int serial_proc_data(void) {
 	if (!(inb(COM1+COM_LSR) & COM_LSR_DATA))
 		return -1;
 	//return inb(COM1+COM_RX);
@@ -64,19 +62,13 @@ serial_proc_data(void)
 	}
 }
 
-void
-serial_intr(void)
-{
+void serial_intr(void) {
 	if (serial_exists)
 		cons_intr(serial_proc_data);
 }
 
-static void
-serial_putc(int c)
-{
-	int i;
-
-	for (i = 0;
+static void serial_putc(int c) {
+	for (int i = 0;
 	     !(inb(COM1 + COM_LSR) & COM_LSR_TXRDY) && i < 12800;
 	     i++)
 		delay();
@@ -174,9 +166,7 @@ cga_init(void)
 
 
 
-static void
-cga_putc(int c)
-{
+static void cga_putc(int c) {
 	// if no attribute given, then use black on white
 	if (!(c & ~0xFF))
 		c |= 0x0700;
@@ -327,9 +317,7 @@ static uint8_t *charcode[4] = {
  * Get data from the keyboard.  If we finish a character, return it.  Else 0.
  * Return -1 if no data.
  */
-static int
-kbd_proc_data(void)
-{
+static int kbd_proc_data(void) {
 	int c;
 	uint8_t stat, data;
 	static uint32_t shift;
@@ -379,15 +367,11 @@ kbd_proc_data(void)
 	return c;
 }
 
-void
-kbd_intr(void)
-{
+void kbd_intr(void) {
 	cons_intr(kbd_proc_data);
 }
 
-static void
-kbd_init(void)
-{
+static void kbd_init(void) {
 	// Drain the kbd buffer so that QEMU generates interrupts.
 	kbd_intr();
 	irq_setmask_8259A(irq_mask_8259A & ~(1<<IRQ_KBD));
@@ -410,9 +394,10 @@ static struct {
 
 // called by device interrupt routines to feed input characters
 // into the circular console input buffer.
-static void
-cons_intr(int (*proc)(void))
-{
+//
+// Return the byte send by kbd
+// Continue to read until no data in reg
+static void cons_intr(int (*proc)(void)) {
 	int c;
 
 	while ((c = (*proc)()) != -1) {
@@ -425,16 +410,14 @@ cons_intr(int (*proc)(void))
 }
 
 // return the next input character from the console, or 0 if none waiting
-int
-cons_getc(void)
-{
+int cons_getc(void) {
 	int c;
 
 	// poll for any pending input characters,
 	// so that this function works even when interrupts are disabled
 	// (e.g., when called from the kernel monitor).
 	serial_intr();
-	kbd_intr();
+	kbd_intr();		// 把来自 kbd 的输入放进 con.buf 里边
 
 	// grab the next character from the input buffer.
 	if (cons.rpos != cons.wpos) {
@@ -447,18 +430,14 @@ cons_getc(void)
 }
 
 // output a character to the console
-static void
-cons_putc(int c)
-{
+static void cons_putc(int c) {
 	serial_putc(c);
 	lpt_putc(c);
 	cga_putc(c);
 }
 
 // initialize the console devices
-void
-cons_init(void)
-{
+void cons_init(void) {
 	cga_init();
 	kbd_init();
 	serial_init();
@@ -470,25 +449,18 @@ cons_init(void)
 
 // `High'-level console I/O.  Used by readline and cprintf.
 
-void
-cputchar(int c)
-{
+void cputchar(int c) {
 	cons_putc(c);
 }
 
-int
-getchar(void)
-{
+int getchar(void) {
 	int c;
-
 	while ((c = cons_getc()) == 0)
 		/* do nothing */;
 	return c;
 }
 
-int
-iscons(int fdnum)
-{
+int iscons(int fdnum) {
 	// used by readline
 	return 1;
 }

@@ -36,8 +36,7 @@ static struct Env *env_free_list;	// Free environment list
 // definition of gdt specifies the Descriptor Privilege Level (DPL)
 // of that descriptor: 0 for kernel and 3 for user.
 //
-struct Segdesc gdt[NCPU + 5] =
-{
+struct Segdesc gdt[NCPU + 5] = {
 	// 0x0 - unused (always faults -- for trapping NULL far pointers)
 	SEG_NULL,
 
@@ -72,9 +71,7 @@ struct Pseudodesc gdt_pd = {
 //   On success, sets *env_store to the environment.
 //   On error, sets *env_store to NULL.
 //
-int
-envid2env(envid_t envid, struct Env **env_store, bool checkperm)
-{
+int envid2env(envid_t envid, struct Env **env_store, bool checkperm) {
 	struct Env *e;
 
 	// If envid is zero, return the current environment.
@@ -404,12 +401,9 @@ load_icode(struct Env *e, uint8_t *binary)
 // before running the first user-mode environment.
 // The new env's parent ID is set to 0.
 //
-void
-env_create(uint8_t *binary, enum EnvType type)
-{
+void env_create(uint8_t *binary, enum EnvType type) {
 	// LAB 3: Your code here.
-
-	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
+	// If (type == ENV_TYPE_FS), give it I/O privileges.
 	// LAB 5: Your code here.
 	
 	struct Env *e;
@@ -419,8 +413,6 @@ env_create(uint8_t *binary, enum EnvType type)
 	load_icode(e, binary);
 	if (type == ENV_TYPE_FS)
 		e->env_tf.tf_eflags |= FL_IOPL_3;
-	//else 
-	//	e->env_tf.tf_eflags &= FL_IOPL_0;
 }
 
 //

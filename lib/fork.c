@@ -102,7 +102,7 @@ envid_t fork(void) {
 	int r;
 	if (envid == 0) {		// Child
 		thisenv = &envs[ENVX(sys_getenvid())];
-		cprintf("Birth of child...\n");
+		//cprintf("Birth of child...\n");
 		return 0;
 	}
 	extern void _pgfault_upcall(void); 
